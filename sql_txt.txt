@@ -1,0 +1,59 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Apr 15 13:28:55 2019
+
+@author: ldh
+"""
+
+# sql_txt
+
+#%% 创建表
+# 创建策略状态表
+
+CREATE TABLE strategy_status
+(
+strategy_id VARCHAR(32),
+last_trade_date VARCHAR(32),
+last_rebalance_date VARCHAR(32),
+position_weight TEXT,
+rebalance_freq INT,
+last_net_value DECIMAL(20,6)
+)
+
+# 创建策略持仓表
+CREATE TABLE strategy_weight
+(
+strategy_id VARCHAR(32),
+trade_date VARCHAR(32),
+position_weight TEXT
+)
+
+# 创建策略调仓表
+
+CREATE TABLE strategy_rebalance
+(
+strategy_id VARCHAR(32),
+trade_date VARCHAR(32),
+rebalance TEXT
+)
+
+#%% 查询
+# 查询策略状态
+SELECT * 
+FROM strategy_status
+WHERE strategy_id = '{strategy_id}'
+
+
+#%% 更新
+
+#%% 插入
+INSERT INTO strategy_status
+(strategy_id,last_trade_date,last_rebalance_date,position_weight,
+rebalance_freq,last_net_value) VALUES ('asset_risk_5','20150104','20141228','{"600887.SZ":0.55}',
+30,1.2)
+
+
+INSERT INTO strategy_status
+(strategy_id,last_trade_date,last_rebalance_date,position_weight,
+rebalance_freq,last_net_value) VALUES ('{strategy_id}','{start_date}','','',
+{rebalance_freq},1)

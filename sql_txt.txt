@@ -45,6 +45,13 @@ WHERE strategy_id = '{strategy_id}'
 
 
 #%% 更新
+UPDATE strategy_status SET
+last_trade_date = '{last_trade_date}',
+last_rebalance_date = '{last_rebalance_date}',
+position_weight = '{position_weight}',
+rebalance_freq = {rebalance_freq},
+last_net_value = {last_net_value}
+WHERE strategy_id = '{strategy_id}'
 
 #%% 插入
 INSERT INTO strategy_status

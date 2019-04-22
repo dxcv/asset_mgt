@@ -7,9 +7,11 @@ Created on Mon Apr 15 13:11:07 2019
 
 # data.py
 
+import datetime as dt
 import pymssql
 import pandas as pd
 from core import Status
+from dataflow.wind.wind_api import get_tdays,get_wsd
 
 #%% Load
 def load_status(strategy_id):
@@ -30,39 +32,7 @@ def load_status(strategy_id):
     status.load_status_from_GB() # 从GB数据库读取策略状态   
     return status
 
-def load_status_from_GB(strategy_id):
-    '''
-    从GeniusBar数据库读取策略状态
-    
-    Parameters
-    -----------
-    strategy_id
-        策略id
-        
-    Returns
-    -------
-    dict or None
-    '''
-    conn = pymssql.connect(server = '172.24.153.43',
-                           user = 'DBadmin',
-                           password = 'fs95536!',
-                           database = 'GeniusBar')
-    cursor = conn.cursor()
-    cursor.execute('''
-    SELECT * 
-    FROM strategy_status
-    WHERE strategy_id = '{strategy_id}'
-    '''.format(strategy_id = strategy_id))
-    data = cursor.fetchall()
-    
-    if len(data) == 0:
-        conn.close()
-        return None
-    else:
-        columns = [each[0] for each in cursor.description]
-        data_dict = pd.DataFrame(data,columns = columns).to_dict('recordes')[0]
-        conn.close()
-        return data_dict
+
 
 def create_trade_calendar(last_trade_date):
     '''
@@ -77,8 +47,54 @@ def create_trade_calendar(last_trade_date):
     --------
     返回上一交易日至今的交易日历，不包含上一交易日
     '''
-    pass
+    calendar = get_tdays(last_trade_date,dt.datetime.today().strftime('%Y%m%d')).\
+    apply(lambda x: x.strftime('%Y%m%d'))
+    return calendar
 
+def prepare_data(universe,start_date,end_date):
+    '''
+    预加载数据。
+    
+    Parameters
+    ----------
+    universe
+        list,标的池
+    start_date
+        开始日期
+    end_date
+        结束日期
+        
+    Returns
+    -------
+    DataFrame
+    '''
+    return get_wsd(universe,'close',start_date,end_date)
+
+def get_daily_pct(universe,trade_date,prepared_data = None):
+    '''
+    获取universe中在交易日当天的收益率.
+    
+    Parameters
+    ----------
+    univere
+        list
+    trade_date
+        str,YYYYMMDD
+    prepared_data
+        DataFrame,预加载数据
+        
+    Returns
+    --------
+    dict
+    '''
+    if prepared_data is not None:
+        pct = prepared_data.pct_change().dropna()
+        try:
+            return pct.loc[dt.datetime.strptime(trade_date,'%Y%m%d').date()].to_dict()
+        except KeyError:
+            return None
+    
+    
 #%% Save
 def write_into_db():
     '''
@@ -102,4 +118,8 @@ def strategy_status_first_into_GB(strategy_id,start_date,rebalance_freq):
     conn.close()
     
 if __name__ == '__main__':
-    status = load_status_from_GB('asset_risk_5')
+#    status = load_status_from_GB('asset_risk_5')
+    mv_universe = ['881001.WI','513500.SH','159920.SZ','518880.SH','H11025.CSI']
+    prepared_data = prepare_data(mv_universe,'20140101','20190416')
+    a = get_daily_pct(mv_universe,'20190415',prepared_data)
+    prepared_data.dropna().to_excel('MVDATA.xlsx')

@@ -7,11 +7,7 @@ Created on Mon Apr 15 13:11:07 2019
 
 # data.py
 
-import datetime as dt
-import pymssql
-import pandas as pd
-from core import Status
-from dataflow.wind.wind_api import get_tdays,get_wsd
+
 
 #%% Load
 def load_status(strategy_id):

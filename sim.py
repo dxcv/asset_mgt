@@ -7,17 +7,16 @@ Created on Mon Apr 15 09:30:42 2019
 
 # strategy.py
 
-import os
+
 import copy
 import numpy as np
 import pandas as pd
 import datetime as dt
 from tqdm import tqdm
 from dateutil.parser import parse
-from data import load_status,create_trade_calendar,strategy_status_first_into_GB,\
-get_daily_pct,prepare_data
 
-def run_sim(strategy,start_date,rebalance_freq,save_path = None):
+def run_sim(strategy,start_date,data_proxy,rebalance_freq = 30,if_save = True,
+            if_summarise = False):
     '''
     运行资产配置策略模拟.
     
@@ -27,17 +26,22 @@ def run_sim(strategy,start_date,rebalance_freq,save_path = None):
         策略对象
     start_date
         策略开始运行日期
+    data_proxy
+        数据代理
     rebalance_freq
-        调仓频率
-    save_path
-        结果保存路径
+        调仓频率，单位为自然日,回测或首次运行需要输入该参数
+    if_save
+        bool,是否保存
+    if_summarise
+        bool,是否输出统计结果
     '''
-    status = load_status(strategy.strategy_id) 
+    status = data_proxy.load_status(strategy.strategy_id) 
     
     if not status.if_exists: # 策略首次运行
         # 插入策略状态
-        strategy_status_first_into_GB(strategy.strategy_id,start_date,rebalance_freq)
-        status = load_status(strategy.strategy_id)      
+        data_proxy.strategy_status_first_into_DB(strategy.strategy_id,
+                                                 start_date,rebalance_freq)
+        status = data_proxy.load_status(strategy.strategy_id)      
         
     weight = status.weight
     last_rebalance_date = status.last_rebalance_date
@@ -45,19 +49,16 @@ def run_sim(strategy,start_date,rebalance_freq,save_path = None):
     rebalance_freq = status.rebalance_freq
     last_net_value = status.last_net_value
     
-    calendar = create_trade_calendar(last_trade_date) 
+    calendar = data_proxy.create_trade_calendar(last_trade_date) 
     
     # 记录用变量
     rebalance_hist = []
     weight_hist = []
     net_value_hist = []
     
-    # 回测与模拟切换
-    # ---------------------------------------------------------------
-#    prepared_data = prepare_data(strategy.universe,last_trade_date,
-#                                 dt.datetime.today().strftime('%Y%m%d'))
-    prepared_data = pd.read_excel('MVDATA.xlsx')
-    # ---------------------------------------------------------------
+    # 统一接口
+    prepared_data = data_proxy.prepare_data(strategy.universe,start_date,
+                                            dt.datetime.today().strftime('%Y%m%d'))
     
     for trade_date in tqdm(calendar):                
         # 判断是否进行调仓
@@ -81,7 +82,7 @@ def run_sim(strategy,start_date,rebalance_freq,save_path = None):
             last_rebalance_date = trade_date
             
         # 将净值、持仓进行记录
-        result = market_update(weight,last_net_value,trade_date,prepared_data)
+        result = market_update(weight,last_net_value,trade_date,data_proxy,prepared_data)
         if result:
             new_net_value,weight = result
         else:
@@ -98,45 +99,43 @@ def run_sim(strategy,start_date,rebalance_freq,save_path = None):
     status.last_trade_date = trade_date
     status.rebalance_freq = rebalance_freq 
     status.last_net_value = last_net_value
-    status.save() 
+    data_proxy.save_status(status)
     
     # 运行结果
     net_value_df = pd.DataFrame(net_value_hist,columns = ['trade_date','net_value']).set_index('trade_date')
     weight_df = pd.DataFrame.from_records(weight_hist).set_index('trade_date')
     rebalance_df = pd.DataFrame.from_records(rebalance_hist).set_index('trade_date')
-    if save_path:
-            net_value_df.to_excel(os.path.join(save_path,strategy.strategy_id + '_' + 'net_value.xlsx'))
-            weight_df.to_excel(os.path.join(save_path,strategy.strategy_id + '_' +'weight.xlsx'))
-            rebalance_df.to_excel(os.path.join(save_path,strategy.strategy_id + '_' +'rebalance.xlsx'))
- 
-    # --------------------------------------------------------------------------------------------------------
-    # 统计指标    
-    ## 累计收益率
-    accum_ret = net_value_hist[-1][1] - 1.0
+    if if_save:
+        data_proxy.write_into_db(strategy.strategy_id,weight_df,rebalance_df,net_value_df)
+        
+    if if_summarise:
+        # --------------------------------------------------------------------------------------------------------
+        # 统计指标    
+        ## 累计收益率
+        accum_ret = net_value_hist[-1][1] - 1.0
+        
+        ## 年化收益率
+        years = (parse(net_value_df.index[-1]) - parse(net_value_df.index[0])).days / 365.
+        annual_ret = np.log(1 + accum_ret) / years
+        
+        ## 最大回撤
+        net_value_df_copy = copy.copy(net_value_df)
+        net_value_df_copy['max_nv'] = net_value_df_copy['net_value'].cummax()
+        net_value_df_copy['dd'] = (net_value_df_copy['max_nv'] - net_value_df_copy['net_value']) / net_value_df_copy['max_nv']
+        max_dd = net_value_df_copy['dd'].max()
+        del net_value_df_copy
+        
+        ## 年化收益波动率
+        annual_var = net_value_df['net_value'].pct_change().dropna().var() * 365.
+        
+        static_indies = pd.Series([accum_ret,annual_ret,max_dd,annual_var],
+                                  index = [u'累计收益率',u'年化收益率',u'最大回撤',u'年化波动率'])
+        static_indies.name = strategy.strategy_id
+        # --------------------------------------------------------------------------------------------------------
     
-    ## 年化收益率
-    years = (parse(net_value_df.index[-1]) - parse(net_value_df.index[0])).days / 365.
-    annual_ret = np.log(1 + accum_ret) / years
-    
-    ## 最大回撤
-    net_value_df_copy = copy.copy(net_value_df)
-    net_value_df_copy['max_nv'] = net_value_df_copy['net_value'].cummax()
-    net_value_df_copy['dd'] = (net_value_df_copy['max_nv'] - net_value_df_copy['net_value']) / net_value_df_copy['max_nv']
-    max_dd = net_value_df_copy['dd'].max()
-    del net_value_df_copy
-    
-    ## 年化收益波动率
-    annual_var = net_value_df['net_value'].pct_change().dropna().var() * 365.
-    
-    static_indies = pd.Series([accum_ret,annual_ret,max_dd,annual_var],
-                              index = [u'累计收益率',u'年化收益率',u'最大回撤',u'年化波动率'])
-    static_indies.name = strategy.strategy_id
-    static_indies.to_excel(os.path.join(save_path,strategy.strategy_id + '_' +'statics.xlsx'))
-    # --------------------------------------------------------------------------------------------------------
-
-
-    
-    return rebalance_df,weight_df,net_value_df,static_indies
+        return rebalance_df,weight_df,net_value_df,static_indies
+    else:
+        return rebalance_df,weight_df,net_value_df
     
 def get_rebalance(weight,new_weight):
     '''
@@ -193,7 +192,7 @@ def if_rebalance(rebalance_freq,last_rebalance_date,trade_date):
     else:
         return False
     
-def market_update(weight,last_net_value,trade_date,prepared_data):
+def market_update(weight,last_net_value,trade_date,data_proxy,prepared_data):
     '''
     市场更新
     
@@ -205,6 +204,8 @@ def market_update(weight,last_net_value,trade_date,prepared_data):
         上一交易日净值
     trade_date
         交易日
+    data_proxy
+        数据代理
     prepared_data
         预加载数据
         
@@ -213,7 +214,7 @@ def market_update(weight,last_net_value,trade_date,prepared_data):
     以收盘价计算的新净值与新权重
     '''
     universe = list(weight.keys())
-    universe_pct = get_daily_pct(universe,trade_date,prepared_data) # dict,获取交易日当天的涨跌幅
+    universe_pct = data_proxy.get_daily_pct(universe,trade_date,prepared_data) # dict,获取交易日当天的涨跌幅
     if universe_pct is None:
         print(trade_date)
         return None

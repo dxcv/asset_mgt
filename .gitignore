@@ -106,3 +106,6 @@ venv.bak/
 # Excel
 *.xlsx
 *.xls
+
+# data file
+data/

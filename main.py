@@ -3,15 +3,22 @@
 Created on Fri Apr 12 17:02:46 2019
 
 @author: ldh
+
+对于回测模拟程序，由以下三个组件构成
+1. 策略对象
+2. 数据源对象
+3. 存储源对象
+
+在创建以上三个组件之后,数据源核存储源对象使用数据代理,通过模拟引擎sim构建.
 """
 
 # main.py
+
 import pandas as pd
 from strategy import MVStrategy,BLStrategy
 from data_proxy import DataProxy
-from DataObjs import LocalMVDataSource1,LocalMVSaveSource1
+from data_objs import LocalMVDataSource1,LocalMVSaveSource1
 from sim import run_sim
-
 
 #------------------ MV模型 ------------------
 #data_source = LocalMVDataSource1()
@@ -29,7 +36,7 @@ from sim import run_sim
    
     
 #------------------ BL模型 ------------------  
-# 行业配置
+# 行业配置 
 bl_industry_universe = \
 ['801010.SI',
  '801020.SI',
@@ -61,7 +68,6 @@ bl_industry_universe = \
  '801890.SI']
 
 
-
 from DataObjs import BLDataSource,LocalBLDataSource
 data_source = LocalBLDataSource()
 save_source = LocalMVSaveSource1('D:\\Temp')
@@ -82,12 +88,6 @@ for strategy_id in bl_strategy:
 #    bl_strategy = BLStrategy(strategy_id,bl_style_universe,data_proxy)
 #    rebalance_df,weight_df,net_value_df = \
 #    run_sim(bl_strategy,'20150105',data_proxy,30)
-
-
-
-
-
-
 
 
 #--------------------------------------------

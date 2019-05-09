@@ -23,7 +23,7 @@ class LocalMVDataSource1():
     '''       
     def __init__(self):
         self.calendar = Calendar(path = 'D:\Work\calendar')
-        self.history_data = pd.read_excel('MVDATA.xlsx')
+        self.history_data = pd.read_excel('D:\\Work\\asset_mgt\\data\\MVDATA.xlsx')
         
     def load_status(self,strategy_id):
         '''

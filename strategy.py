@@ -17,9 +17,9 @@ from dataflow.wind.calendar import Calendar
 
 from utils import optimized_weight,BLModel
 
-history_data = pd.read_excel('MVDATA.xlsx')
+#history_data = pd.read_excel('MVDATA.xlsx')
 
-annual_ret = pd.read_excel('.\\annual_ret.xlsx')[0]
+annual_ret = pd.read_excel('.\\data\\annual_ret.xlsx')[0]
 #sigma = pd.read_excel('60sigma.xlsx')
 #calendar2 = Calendar()
 

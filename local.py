@@ -1,11 +1,15 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu May  9 15:27:14 2019
+Created on Fri Apr 12 17:02:46 2019
 
 @author: ldh
 
-通用接口测试。
+对于回测模拟程序，由以下三个组件构成
+1. 策略对象
+2. 数据源对象
+3. 存储源对象
 
+在创建以上三个组件之后,数据源核存储源对象使用数据代理,通过模拟引擎sim构建.
 """
 
 # main.py
@@ -13,22 +17,21 @@ Created on Thu May  9 15:27:14 2019
 import pandas as pd
 from strategy import MVStrategy,BLStrategy
 from data_proxy import DataProxy
-from data_objs import CommonDataSource,CommonSaveSource
+from data_objs import LocalMVDataSource1,LocalMVSaveSource1
 from sim import run_sim
 
 #------------------ MV模型 ------------------
-#data_source = CommonDataSource()
-#save_source = CommonSaveSource()
+#data_source = LocalMVDataSource1()
+#save_source = LocalMVSaveSource1('D:\\Temp') ## TODO:存储接口最好不要在一开始定义
 #data_proxy = DataProxy(data_source,save_source)
 #
 #mv_universe = ['881001.WI','513500.SH','159920.SZ','518880.SH','H11025.CSI']
-#mv_strategy_ids = {'medium':0.4}
-##mv_strategy_ids = {'medium':0.4,'medium_high':0.7,'high':1,'medium_low':0.2,'low':0.1}
+#mv_strategy_ids = {'medium':0.4,'medium_high':0.7,'high':1,'medium_low':0.2,'low':0.1}
 #
 #for strategy_id,risk_level in mv_strategy_ids.items():
 #    mv_strategy = MVStrategy(strategy_id,mv_universe,risk_level,data_proxy)
 #    rebalance_df,weight_df,net_value_df = \
-#    run_sim(0,mv_strategy,'20180105',data_proxy,30)
+#    run_sim(mv_strategy,'20150105',data_proxy,30)
 #--------------------------------------------
    
     
@@ -65,7 +68,7 @@ bl_industry_universe = \
  '801890.SI']
 
 
-from data_objs import BLDataSource,LocalBLDataSource
+from DataObjs import BLDataSource,LocalBLDataSource
 data_source = LocalBLDataSource()
 save_source = LocalMVSaveSource1('D:\\Temp')
 data_proxy = DataProxy(data_source,save_source)
@@ -76,7 +79,7 @@ for strategy_id in bl_strategy:
     rebalance_df,weight_df,net_value_df = \
     run_sim(bl_strategy,'20150105',data_proxy,30)
     
-#风格配置
+# 风格配置
 #bl_style_universe = ['399372.SZ', '399373.SZ', '399374.SZ', '399375.SZ', '399376.SZ', '399377.SZ']
 #
 #

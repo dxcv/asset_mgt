@@ -7,9 +7,7 @@ Created on Mon Apr 15 13:12:11 2019
 
 # core.py
 
-import json
-import pymssql
-import pandas as pd
+from abc import abstractmethod
 
 class Strategy():
     '''
@@ -20,6 +18,7 @@ class Strategy():
         self.universe = universe
         self.data_proxy
     
+    @abstractmethod
     def yield_weight(self):
         '''
         生成持仓。
@@ -35,23 +34,35 @@ class Status():
     '''
     策略运行状态。
     '''
-    def __init__(self,strategy_id):
+    def __init__(self,customer_id,strategy_id):
+        self.customer_id = customer_id
         self.strategy_id = strategy_id
         self.if_exists = True
         self.last_trade_date = None
         self.last_rebalance_date = None
         self.weight = None
         self.rebalance_freq = None
-        self.last_net_value = None
-        
-    def load_status_from_GB(self):
-        '''
-        从Genuis Bar数据库读取状态信息.
-        '''
+        self.last_net_value = None        
 
-        
-    def refresh(self):
+class DataSource():
+    
+    @abstractmethod
+    def load_status(self):
         pass
+    
+    @abstractmethod
+    def create_trade_calendar(self):
+        pass
+    
+    @abstractmethod
+    def prepare_data(self):
+        pass
+    
+    @abstractmethod
+    def get_daily_pct(self):
+        pass
+    
+   
     
 
     

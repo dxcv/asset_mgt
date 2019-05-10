@@ -9,19 +9,27 @@ Created on Mon Apr 22 11:08:00 2019
 
 class DataProxy():
     '''
-    定义数据输入和输出代理
+    代理
     '''
     def __init__(self,data_source,save_source):
         self.data_source = data_source
         self.save_source = save_source
         
+    def pre_load(self):
+        '''
+        预加载数据.
+        '''
+        self.data_source.pre_load()
+        
     # 数据输入
-    def load_status(self,strategy_id):
+    def load_status(self,customer_id,strategy_id):
         '''
         读取策略运行状态.
         
         Parameters
         ----------
+        customer_id
+            客户id
         strategy_id
             策略id
             
@@ -30,7 +38,7 @@ class DataProxy():
         Status
             Status对象
         '''
-        return self.data_source.load_status(strategy_id)
+        return self.data_source.load_status(customer_id,strategy_id)
         
     def prepare_data(self,universe,start_date,end_date):
         '''
@@ -140,7 +148,7 @@ class DataProxy():
         '''
         return self.data_source.get_history_close_data(universe,start_date,end_date)
     
-    def load_P(self,customer_id,P_type):
+    def load_P(self,customer_id,strategy_id):
         '''
         读取客户P矩阵.
         
@@ -148,12 +156,12 @@ class DataProxy():
         ----------
         strategy_id
             str
-        P_type
-            'industry','style'
+        strategy_id
+            str
         '''
-        return self.data_source.load_P(customer_id,P_type)
+        return self.data_source.load_P(customer_id,strategy_id)
     
-    def load_Q(self,customer_id,Q_type):
+    def load_Q(self,customer_id,strategy_id):
         '''
         读取客户Q矩阵.
         
@@ -161,26 +169,40 @@ class DataProxy():
         ----------
         strategy_id
             str
-        Q_type
-            'industry','style'
+        strategy_id
+            str
         '''
-        return self.data_source.load_Q(customer_id,Q_type)
+        return self.data_source.load_Q(customer_id,strategy_id)
     
     # 数据输出
-    def write_into_db(self,strategy_id,weight_record,rebalance_record,net_value_record):
+    def write_into_db(self,customer_id,strategy_id,weight_record,rebalance_record,net_value_record):
         '''
         写入数据库.
         '''
-        self.save_source.write_into_db(strategy_id,weight_record,rebalance_record,net_value_record)
+        self.save_source.write_into_db(customer_id,strategy_id,weight_record,
+                                       rebalance_record,net_value_record)
     
-    def strategy_status_first_into_DB(self,strategy_id,start_date,rebalance_freq):    
+    def strategy_status_first_into_DB(self,customer_id,strategy_id,start_date,rebalance_freq):    
         '''
         策略状态首次存入数据库。
         '''
-        self.save_source.strategy_status_first_into_DB(strategy_id,start_date,rebalance_freq)
+        self.save_source.strategy_status_first_into_DB(customer_id,strategy_id,
+                                                       start_date,rebalance_freq)
         
     def save_status(self,status):
         self.save_source.save_status(status)
     
     def get_wsd(self,universe,factor,start_date,end_date,names = None,if_convert = False,**options):
+        '''
+        万德wsd函数代理
+        '''
         return self.data_source.get_wsd(universe,factor,start_date,end_date,names,if_convert,**options)
+
+    def get_annual_ret(self):
+        return self.data_source.get_annual_ret()
+    
+    def get_cov_mat(self):
+        return self.data_source.get_cov_mat()
+    
+    def get_market_cap_ashare(self,universe,start_date,end_date):
+        return self.data_source.get_market_cap_ashare()

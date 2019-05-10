@@ -25,10 +25,7 @@ annual_ret = annual_ret.rename(index = dict(zip(universe,mv_universe)))
 cov_mat = data_pct.cov() * 252
 cov_mat = cov_mat.rename(index = dict(zip(universe,mv_universe)),columns = dict(zip(universe,mv_universe)))
 
-
-
 # 准备BL模型所需要的数据
-
 
 bl_industry_universe = \
 ['801010.SI',

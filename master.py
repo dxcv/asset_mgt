@@ -12,74 +12,35 @@ import multiprocessing
 
 from sim import run_sim
 from data_proxy import DataProxy
-from data_objs import LocalMVDataSource1,LocalMVSaveSource1
-from strategy import MVStrategy
+from data_objs import MVDataSource,BLDataSourceIndustry,\
+BLDataSourceStyle,CommonSaveSource
+from strategy import MVStrategy,BLStrategy
         
-def MV_Simulation(task_queue,result_queue,error_queue):   
-    try:
-        universe = ['881001.WI','513500.SH','159920.SZ','518880.SH','H11025.CSI']
+
         
-        data_source = LocalMVDataSource1()
-        save_source = LocalMVSaveSource1('D:\\Work\\tmp\\multiprocess_save')
-        data_proxy = DataProxy(data_source,save_source)  
+def run_MV():
     
-        while True:
-            if task_queue.empty():
-                break
-            task = task_queue.get(block = False,timeout = 1)
-            strategy_id = task[0]
-            risk_level = task[1]
-            strategy = MVStrategy(strategy_id,universe,risk_level,data_proxy)
-            run_sim(strategy,'20150101',data_proxy,rebalance_freq = 30)
-            result_queue.put('OK for %s'%strategy_id)
+    def MV_Simulation(task_queue,result_queue,error_queue):   
+        try:
+            universe = ['881001.WI','513500.SH','159920.SZ','518880.SH','H11025.CSI']
             
-    except Exception as e:
-        error_queue.put(e)
+            data_source = MVDataSource()
+            save_source = CommonSaveSource()
+            data_proxy = DataProxy(data_source,save_source)  
         
-def BL_Industry_Simulation(task_queue,result_queue,error_queue):   
-    try:
-        universe = ['881001.WI','513500.SH','159920.SZ','518880.SH','H11025.CSI']
-        
-        data_source = LocalMVDataSource1()
-        save_source = LocalMVSaveSource1('D:\\Work\\tmp\\multiprocess_save')
-        data_proxy = DataProxy(data_source,save_source)  
-    
-        while True:
-            if task_queue.empty():
-                break
-            task = task_queue.get(block = False,timeout = 1)
-            strategy_id = task[0]
-            risk_level = task[1]
-            strategy = MVStrategy(strategy_id,universe,risk_level,data_proxy)
-            run_sim(strategy,'20150101',data_proxy,rebalance_freq = 30)
-            result_queue.put('OK for %s'%strategy_id)
+            while True:
+                if task_queue.empty():
+                    break
+                task = task_queue.get(block = False,timeout = 1)
+                strategy_id = task[0]
+                risk_level = task[1]
+                strategy = MVStrategy(strategy_id,universe,risk_level,data_proxy)
+                run_sim(strategy,'20150101',data_proxy,rebalance_freq = 30)
+                result_queue.put('MV OK for %s'%strategy_id)
             
-    except Exception as e:
-        error_queue.put(e)
-        
-def BL_Style_Simulation(task_queue,result_queue,error_queue):   
-    try:
-        universe = ['881001.WI','513500.SH','159920.SZ','518880.SH','H11025.CSI']
-        
-        data_source = LocalMVDataSource1()
-        save_source = LocalMVSaveSource1('D:\\Work\\tmp\\multiprocess_save')
-        data_proxy = DataProxy(data_source,save_source)  
-    
-        while True:
-            if task_queue.empty():
-                break
-            task = task_queue.get(block = False,timeout = 1)
-            strategy_id = task[0]
-            risk_level = task[1]
-            strategy = MVStrategy(strategy_id,universe,risk_level,data_proxy)
-            run_sim(strategy,'20150101',data_proxy,rebalance_freq = 30)
-            result_queue.put('OK for %s'%strategy_id)
+        except Exception as e:
+            error_queue.put(e)
             
-    except Exception as e:
-        error_queue.put(e)
-            
-if __name__ == '__main__':
-    
     mv_strategy_ids = [('medium',0.4),('medium_high',0.7),('high',1),('medium_low',0.2),('low',0.1)]
     
     task_queue = multiprocessing.Queue()
@@ -96,23 +57,172 @@ if __name__ == '__main__':
         p_executor.start()
         processes_list.append(p_executor)    
                 
-    counts = 0
-    while counts < 5:
+    while True:
         try:
-            error = error_queue.get(block = False)
-            counts += 1
+            error = error_queue.get(block = False,timeout = 1)
             print(error)
         except:
-            pass
+            continue
+        
+    for p in processes_list:
+        p.join()  
+    
+def run_BL_industry(cust_ids):
+    data_source = BLDataSourceIndustry()
+    save_source = CommonSaveSource()
+    data_proxy = DataProxy(data_source,save_source)
+    data_proxy.pre_load()
+    
+    universe = ['801010.SI',
+                 '801020.SI',
+                 '801030.SI',
+                 '801040.SI',
+                 '801050.SI',
+                 '801080.SI',
+                 '801110.SI',
+                 '801120.SI',
+                 '801130.SI',
+                 '801140.SI',
+                 '801150.SI',
+                 '801160.SI',
+                 '801170.SI',
+                 '801180.SI',
+                 '801200.SI',
+                 '801210.SI',
+                 '801230.SI',
+                 '801710.SI',
+                 '801720.SI',
+                 '801730.SI',
+                 '801740.SI',
+                 '801750.SI',
+                 '801760.SI',
+                 '801770.SI',
+                 '801780.SI',
+                 '801790.SI',
+                 '801880.SI',
+                 '801890.SI']      
+    
+    def BL_Industry_Simulation(task_queue,result_queue,error_queue):   
+        try:                                
+            while True:
+                if task_queue.empty():
+                    break
+                customer_id = task_queue.get(block = False,timeout = 1)
+                strategy = BLStrategy(customer_id,'bl_industry',universe,data_proxy)
+                run_sim(strategy,'20180101',data_proxy,rebalance_freq = 30)
+                result_queue.put('BL industry was OK for %s'%customer_id)                
+        except Exception as e:
+            error_queue.put(e)
+            
+    task_queue = multiprocessing.Queue()
+    result_queue = multiprocessing.Queue()
+    error_queue = multiprocessing.Queue()
+    
+    for each in cust_ids:
+        task_queue.put(each)
+        
+    cpu_count = multiprocessing.cpu_count()
+    processes_list = []
+    for i in range(cpu_count):
+        p_executor = multiprocessing.Process(target = BL_Industry_Simulation,
+                                             args = (task_queue,result_queue,error_queue))
+        p_executor.start()
+        processes_list.append(p_executor)    
+                
+        
+    while True:
         try:
-            res = result_queue.get(block = False)
-            counts += 1
-            print(res)
+            error = error_queue.get(block = False,timeout = 1)
+            print(error)
         except:
-            pass
+            continue
         
-    for process in processes_list:
-        process.join()
-        process.close()
+    for p in processes_list:
+        p.join()
+
+
+def run_BL_style(cust_ids):
+    data_source = BLDataSourceIndustry()
+    save_source = CommonSaveSource()
+    data_proxy = DataProxy(data_source,save_source)
+    data_proxy.pre_load()
+    
+    universe = ['801010.SI',
+                 '801020.SI',
+                 '801030.SI',
+                 '801040.SI',
+                 '801050.SI',
+                 '801080.SI',
+                 '801110.SI',
+                 '801120.SI',
+                 '801130.SI',
+                 '801140.SI',
+                 '801150.SI',
+                 '801160.SI',
+                 '801170.SI',
+                 '801180.SI',
+                 '801200.SI',
+                 '801210.SI',
+                 '801230.SI',
+                 '801710.SI',
+                 '801720.SI',
+                 '801730.SI',
+                 '801740.SI',
+                 '801750.SI',
+                 '801760.SI',
+                 '801770.SI',
+                 '801780.SI',
+                 '801790.SI',
+                 '801880.SI',
+                 '801890.SI']      
+    
+    def BL_Style_Simulation(task_queue,result_queue,error_queue):   
+        try:
+            universe = ['399372.SZ', '399373.SZ', '399374.SZ', '399375.SZ', '399376.SZ', '399377.SZ']
+            
+            data_source = BLDataSourceStyle()
+            save_source = CommonSaveSource()
+            data_proxy = DataProxy(data_source,save_source)  
         
-    os.system('pause')
+            while True:
+                if task_queue.empty():
+                    break
+                task = task_queue.get(block = False,timeout = 1)
+                strategy_id = task[0]
+                risk_level = task[1]
+                strategy = BLStrategy(strategy_id,universe,risk_level,data_proxy)
+                run_sim(strategy,'20180101',data_proxy,rebalance_freq = 30)
+                result_queue.put('OK for %s'%strategy_id)
+                
+        except Exception as e:
+            error_queue.put(e)
+            
+    task_queue = multiprocessing.Queue()
+    result_queue = multiprocessing.Queue()
+    error_queue = multiprocessing.Queue()
+    
+    for each in cust_ids:
+        task_queue.put(each)
+        
+    cpu_count = multiprocessing.cpu_count()
+    processes_list = []
+    for i in range(cpu_count):
+        p_executor = multiprocessing.Process(target = BL_Style_Simulation,
+                                             args = (task_queue,result_queue,error_queue))
+        p_executor.start()
+        processes_list.append(p_executor)    
+                
+        
+    while True:
+        try:
+            error = error_queue.get(block = False,timeout = 1)
+            print(error)
+        except:
+            continue
+        
+    for p in processes_list:
+        p.join()        
+        
+if __name__ == '__main__':
+    pass
+

@@ -12,6 +12,7 @@ Created on Mon Apr 15 13:28:55 2019
 
 CREATE TABLE strategy_status
 (
+customer_id BIGINT,
 strategy_id VARCHAR(32),
 last_trade_date VARCHAR(32),
 last_rebalance_date VARCHAR(32),
@@ -23,6 +24,7 @@ last_net_value DECIMAL(20,6)
 # 创建策略持仓表
 CREATE TABLE strategy_weight
 (
+customer_id BIGINT,
 strategy_id VARCHAR(32),
 trade_date VARCHAR(32),
 position_weight TEXT
@@ -32,9 +34,20 @@ position_weight TEXT
 
 CREATE TABLE strategy_rebalance
 (
+customer_id BIGINT,
 strategy_id VARCHAR(32),
 trade_date VARCHAR(32),
 rebalance TEXT
+)
+
+# 创建策略净值表
+
+CREATE TABLE strategy_net_value
+(
+customer_id BIGINT,
+strategy_id VARCHAR(32),
+trade_date VARCHAR(32),
+net_value DECIMAL(20,6)
 )
 
 #%% 查询
@@ -64,3 +77,15 @@ INSERT INTO strategy_status
 (strategy_id,last_trade_date,last_rebalance_date,position_weight,
 rebalance_freq,last_net_value) VALUES ('{strategy_id}','{start_date}','','',
 {rebalance_freq},1)
+
+#%% 删除表
+DROP TABLE strategy_status
+DROP TABLE strategy_weight
+DROP TABLE strategy_rebalance
+DROP TABLE strategy_net_value
+
+#%% 清空表
+TRUNCATE TABLE strategy_status
+TRUNCATE TABLE strategy_weight
+TRUNCATE TABLE strategy_rebalance
+TRUNCATE TABLE strategy_net_value

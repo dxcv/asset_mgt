@@ -15,13 +15,15 @@ import datetime as dt
 from tqdm import tqdm
 from dateutil.parser import parse
 
-def run_sim(strategy,start_date,data_proxy,rebalance_freq = 30,if_save = True,
+def run_sim(customer_id,strategy,start_date,data_proxy,rebalance_freq = 30,if_save = True,
             if_summarise = False):
     '''
     运行资产配置策略模拟.
     
     Parameters
     ----------
+    customer_id
+        客户id
     strategy
         策略对象
     start_date
@@ -35,13 +37,14 @@ def run_sim(strategy,start_date,data_proxy,rebalance_freq = 30,if_save = True,
     if_summarise
         bool,是否输出统计结果
     '''
-    status = data_proxy.load_status(strategy.strategy_id) 
+    status = data_proxy.load_status(customer_id,strategy.strategy_id) 
     
     if not status.if_exists: # 策略首次运行
         # 插入策略状态
-        data_proxy.strategy_status_first_into_DB(strategy.strategy_id,
+        data_proxy.strategy_status_first_into_DB(customer_id,
+                                                 strategy.strategy_id,
                                                  start_date,rebalance_freq)
-        status = data_proxy.load_status(strategy.strategy_id)      
+        status = data_proxy.load_status(customer_id,strategy.strategy_id)      
         
     weight = status.weight
     last_rebalance_date = status.last_rebalance_date
@@ -49,7 +52,9 @@ def run_sim(strategy,start_date,data_proxy,rebalance_freq = 30,if_save = True,
     rebalance_freq = status.rebalance_freq
     last_net_value = status.last_net_value
     
-    calendar = data_proxy.create_trade_calendar(last_trade_date) 
+    calendar = data_proxy.create_trade_calendar(last_trade_date) # 不含last_trade_date 
+    if last_trade_date in calendar.values:
+        calendar = calendar.iloc[1:]
     
     # 记录用变量
     rebalance_hist = []
@@ -57,8 +62,11 @@ def run_sim(strategy,start_date,data_proxy,rebalance_freq = 30,if_save = True,
     net_value_hist = []
     
     # 统一接口
-    prepared_data = data_proxy.prepare_data(strategy.universe,start_date,
+    prepared_data = data_proxy.prepare_data(strategy.universe,last_trade_date,
                                             dt.datetime.today().strftime('%Y%m%d'))
+    
+    if prepared_data.shape[0] <= 1:
+        return 0
     
     for trade_date in tqdm(calendar):                
         # 判断是否进行调仓
@@ -68,7 +76,6 @@ def run_sim(strategy,start_date,data_proxy,rebalance_freq = 30,if_save = True,
             new_weight = strategy.yield_weight(trade_date) 
             
             if new_weight is None:
-#                print('No Solution')
                 last_rebalance_date = trade_date
                 continue
             rebalance_weight = get_rebalance(weight,new_weight)
@@ -85,6 +92,7 @@ def run_sim(strategy,start_date,data_proxy,rebalance_freq = 30,if_save = True,
         result = market_update(weight,last_net_value,trade_date,data_proxy,prepared_data)
         if result:
             new_net_value,weight = result
+            end_date = trade_date
         else:
             break
         last_net_value = new_net_value
@@ -96,7 +104,7 @@ def run_sim(strategy,start_date,data_proxy,rebalance_freq = 30,if_save = True,
     # 更新status
     status.weight = weight
     status.last_rebalance_date = last_rebalance_date  
-    status.last_trade_date = trade_date
+    status.last_trade_date = end_date
     status.rebalance_freq = rebalance_freq 
     status.last_net_value = last_net_value
     data_proxy.save_status(status)
@@ -105,8 +113,9 @@ def run_sim(strategy,start_date,data_proxy,rebalance_freq = 30,if_save = True,
     net_value_df = pd.DataFrame(net_value_hist,columns = ['trade_date','net_value']).set_index('trade_date')
     weight_df = pd.DataFrame.from_records(weight_hist).set_index('trade_date')
     rebalance_df = pd.DataFrame.from_records(rebalance_hist).set_index('trade_date')
+    
     if if_save:
-        data_proxy.write_into_db(strategy.strategy_id,weight_df,rebalance_df,net_value_df)
+        data_proxy.write_into_db(customer_id,strategy.strategy_id,weight_df,rebalance_df,net_value_df)
         
     if if_summarise:
         # --------------------------------------------------------------------------------------------------------

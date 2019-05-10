@@ -125,7 +125,6 @@ def BLModel(market_expected_ret,covariance_matrix,tau,P,Q,omega,risk_aversion,
                 index = market_expected_ret.index,
                 columns = market_expected_ret.index)    
         P = P.reindex(columns = market_expected_ret.index)
-#        Q = Q.reindex(columns = market_expected_ret.index)
         
     market_expected_ret = np.mat(market_expected_ret).T
     covariance_matrix = np.mat(covariance_matrix)
@@ -136,9 +135,7 @@ def BLModel(market_expected_ret,covariance_matrix,tau,P,Q,omega,risk_aversion,
         P = np.mat(np.zeros(1,len(market_expected_ret)))
         Q = np.mat(np.zeros(1,1))
 
-    omega = tau * P * covariance_matrix * P.T
-#    A = 1 / tau * covariance_matrix.I + P.T * omega.I * P
-#    B = 1 / tau * covariance_matrix.I * market_expected_ret + P.T * omega.I * Q     
+    omega = tau * P * covariance_matrix * P.T 
     
     ER = market_expected_ret + tau * covariance_matrix  * P.T * \
     (tau * P * covariance_matrix * P.T + omega).I * (Q - P * market_expected_ret)
@@ -146,9 +143,7 @@ def BLModel(market_expected_ret,covariance_matrix,tau,P,Q,omega,risk_aversion,
     (P * covariance_matrix * P.T + omega).I * P * tau * covariance_matrix
     
     VarianceMatrix = covariance_matrix + M
-#    print(ER)
-#    print(VarianceMatrix) 
-#    print(omega)
+
     try:
         w = cvx.Variable(len(ER))
         ret = ER.T * w
@@ -178,27 +173,6 @@ def BLModel(market_expected_ret,covariance_matrix,tau,P,Q,omega,risk_aversion,
         
         return pd.DataFrame([weight_adj],columns = index_names).iloc[0].to_dict()
     
-#    if solver_type == 'math':
-#        # 数值解
-#        return (risk_aversion * VarianceMatrix).I * ER
-#    
-#    elif solver_type == 'cvx':
-#        # cvx求解
-#        w = cvx.Variable(len(ER))
-#        ret = ER.T * w
-#        risk = cvx.quad_form(w,VarianceMatrix) 
-#        objective = cvx.Maximize(ret - risk_aversion * risk)
-#        constraints = [cvx.sum(w) == 1,w >= 0]
-#    
-#        prob = cvx.Problem(objective,constraints)
-#        prob.solve()
-#        if prob.status == INFEASIBLE:
-#            return None
-#        else:
-#            return w.value
-    #        target_dict = pd.DataFrame(w.value,
-    #                                   index = expected_ret.index,
-    #                                   columns = ['weight'])['weight'].to_dict()        
 
 if __name__ == '__main__':
     # 测试MV

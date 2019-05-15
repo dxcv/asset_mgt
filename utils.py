@@ -63,12 +63,13 @@ def optimized_weight(expected_ret,covariance_matrix,least_weight = 0.1,
         prob = cvx.Problem(objective,constraints)
         prob.solve()
         if prob.status == INFEASIBLE:
-#            print('INFEASIBLE')
-            return None
+            return {k:1/len(expected_ret) for k in expected_ret.index.tolist()}
         else:
-            target_dict = pd.DataFrame(w.value,
+            target_df = pd.DataFrame(w.value,
                                        index = expected_ret.index,
-                                       columns = ['weight'])['weight'].to_dict()
+                                       columns = ['weight'])
+            target_df.loc[target_df['weight'] < 0,'weight'] = 0
+            target_dict = target_df['weight'].to_dict()
             return target_dict
 #    elif opt_type == 'utility':
     #    objective = cvx.Maximize(ret - gamma * risk)
@@ -154,9 +155,8 @@ def BLModel(market_expected_ret,covariance_matrix,tau,P,Q,omega,risk_aversion,
         prob = cvx.Problem(objective,constraints)
         prob.solve()
         if prob.status == INFEASIBLE:
-            return None
+            return {k:1/len(ER) for k in market_expected_ret.index.tolist()}
         else:            
-            print('Sucessfully!')
             weight = pd.DataFrame(data = [np.asarray(w.value).flatten()],columns = index_names)
             return weight.iloc[0].to_dict()
     except:

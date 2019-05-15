@@ -13,10 +13,10 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 from tqdm import tqdm
-from dateutil.parser import parse
+#from dateutil.parser import parse
+from dateutil.relativedelta import relativedelta
 
-def run_sim(customer_id,strategy,start_date,data_proxy,rebalance_freq = 30,if_save = True,
-            if_summarise = False):
+def run_sim(customer_id,strategy,start_date,data_proxy,rebalance_freq = 30,if_save = True):
     '''
     运行资产配置策略模拟.
     
@@ -34,8 +34,6 @@ def run_sim(customer_id,strategy,start_date,data_proxy,rebalance_freq = 30,if_sa
         调仓频率，单位为自然日,回测或首次运行需要输入该参数
     if_save
         bool,是否保存
-    if_summarise
-        bool,是否输出统计结果
     '''
     status = data_proxy.load_status(customer_id,strategy.strategy_id) 
     
@@ -47,33 +45,36 @@ def run_sim(customer_id,strategy,start_date,data_proxy,rebalance_freq = 30,if_sa
         status = data_proxy.load_status(customer_id,strategy.strategy_id)      
         
     weight = status.weight
-    last_rebalance_date = status.last_rebalance_date
-    last_trade_date = status.last_trade_date
+    if len(status.last_rebalance_date) == 0:
+        status.last_rebalance_date = dt.datetime(1990,1,1)
+        
+    last_rebalance_date = pd.to_datetime(status.last_rebalance_date)
+    last_trade_date = pd.to_datetime(status.last_trade_date)
     rebalance_freq = status.rebalance_freq
     last_net_value = status.last_net_value
     
-    calendar = data_proxy.create_trade_calendar(last_trade_date) # 不含last_trade_date 
-    if last_trade_date in calendar.values:
-        calendar = calendar.iloc[1:]
+    calendar = data_proxy.create_trade_calendar(last_trade_date) # 数据接口,获取交易日历
     
     # 记录用变量
     rebalance_hist = []
+    rebalance_dates = []
     weight_hist = []
+    weight_dates = []
     net_value_hist = []
+        
+    calendar_touse = pd.DataFrame(calendar,columns = ['trade_date'])
+    calendar_touse.set_index('trade_date',drop = False,inplace = True)
+    calendar_touse = calendar_touse.loc[(last_trade_date + relativedelta(days = 1)):dt.datetime.today()]
     
-    # 统一接口
-    prepared_data = data_proxy.prepare_data(strategy.universe,last_trade_date,
-                                            dt.datetime.today().strftime('%Y%m%d'))
-    
-    if prepared_data.shape[0] <= 1:
-        return 0
-    
-    for trade_date in tqdm(calendar):                
-        # 判断是否进行调仓
+    # 数据核查,保证系统运行回测的数据能够支持对应的日历
+    last_pct_avl = data_proxy.data_source.pct.index[-1]
+    calendar_touse = calendar_touse[:last_pct_avl]
+    for trade_date in tqdm(calendar_touse['trade_date']):                
+        # 判断是否进行调仓.
         if if_rebalance(rebalance_freq,last_rebalance_date,trade_date):
             
             # 修改position
-            new_weight = strategy.yield_weight(trade_date) 
+            new_weight = strategy.yield_weight(trade_date) # 策略接口
             
             if new_weight is None:
                 last_rebalance_date = trade_date
@@ -81,71 +82,42 @@ def run_sim(customer_id,strategy,start_date,data_proxy,rebalance_freq = 30,if_sa
             rebalance_weight = get_rebalance(weight,new_weight)
             
             # 添加调仓日期
-            rebalance_weight['trade_date'] = trade_date
+#            rebalance_weight['trade_date'] = trade_date
             rebalance_hist.append(rebalance_weight)
+            rebalance_dates.append(trade_date.strftime('%Y%m%d'))
             weight = new_weight
             
             # 更新调仓日
             last_rebalance_date = trade_date
             
         # 将净值、持仓进行记录
-        result = market_update(weight,last_net_value,trade_date,data_proxy,prepared_data)
-        if result:
+        result = market_update(weight,last_net_value,trade_date,data_proxy) # 数据接口
+        if result is not None:
             new_net_value,weight = result
-            end_date = trade_date
         else:
             break
         last_net_value = new_net_value
-        net_value_hist.append([trade_date,new_net_value])          
+        net_value_hist.append([trade_date.strftime('%Y%m%d'),new_net_value])          
         weight_to_record = copy.copy(weight)
-        weight_to_record['trade_date'] = trade_date
         weight_hist.append(weight_to_record)
+        weight_dates.append(trade_date.strftime('%Y%m%d'))
     
     # 更新status
     status.weight = weight
-    status.last_rebalance_date = last_rebalance_date  
-    status.last_trade_date = end_date
+    status.last_rebalance_date = last_rebalance_date.strftime('%Y%m%d')  
+    status.last_trade_date = trade_date.strftime('%Y%m%d')
     status.rebalance_freq = rebalance_freq 
     status.last_net_value = last_net_value
     data_proxy.save_status(status)
     
     # 运行结果
     net_value_df = pd.DataFrame(net_value_hist,columns = ['trade_date','net_value']).set_index('trade_date')
-    weight_df = pd.DataFrame.from_records(weight_hist).set_index('trade_date')
-    rebalance_df = pd.DataFrame.from_records(rebalance_hist).set_index('trade_date')
     
     if if_save:
-        data_proxy.write_into_db(customer_id,strategy.strategy_id,weight_df,rebalance_df,net_value_df)
+        data_proxy.write_into_db(customer_id,strategy.strategy_id,weight_hist,weight_dates,
+                                 rebalance_hist,rebalance_dates,net_value_df)
         
-    if if_summarise:
-        # --------------------------------------------------------------------------------------------------------
-        # 统计指标    
-        ## 累计收益率
-        accum_ret = net_value_hist[-1][1] - 1.0
-        
-        ## 年化收益率
-        years = (parse(net_value_df.index[-1]) - parse(net_value_df.index[0])).days / 365.
-        annual_ret = np.log(1 + accum_ret) / years
-        
-        ## 最大回撤
-        net_value_df_copy = copy.copy(net_value_df)
-        net_value_df_copy['max_nv'] = net_value_df_copy['net_value'].cummax()
-        net_value_df_copy['dd'] = (net_value_df_copy['max_nv'] - net_value_df_copy['net_value']) / net_value_df_copy['max_nv']
-        max_dd = net_value_df_copy['dd'].max()
-        del net_value_df_copy
-        
-        ## 年化收益波动率
-        annual_var = net_value_df['net_value'].pct_change().dropna().var() * 365.
-        
-        static_indies = pd.Series([accum_ret,annual_ret,max_dd,annual_var],
-                                  index = [u'累计收益率',u'年化收益率',u'最大回撤',u'年化波动率'])
-        static_indies.name = strategy.strategy_id
-        # --------------------------------------------------------------------------------------------------------
-    
-        return rebalance_df,weight_df,net_value_df,static_indies
-    else:
-        return rebalance_df,weight_df,net_value_df
-    
+
 def get_rebalance(weight,new_weight):
     '''
     计算权重更新.
@@ -190,18 +162,49 @@ def if_rebalance(rebalance_freq,last_rebalance_date,trade_date):
     trade_date
         YYYYMMDD
     '''
-    if len(last_rebalance_date) == 0:
-        return True
-    time_diff = dt.datetime.strptime(trade_date,'%Y%m%d') - \
-    dt.datetime.strptime(last_rebalance_date,'%Y%m%d')
-    time_diff = int(time_diff.days)
+    if isinstance(last_rebalance_date,pd.Timestamp) and isinstance(trade_date,pd.Timestamp):
+        time_diff = int((trade_date - last_rebalance_date).days)
+        
+        if time_diff >= rebalance_freq:
+            return True
+        else:
+            return False
+        
+    if isinstance(last_rebalance_date,str) and isinstance(trade_date,str):
+        if len(last_rebalance_date) == 0:
+            return True
+        time_diff = dt.datetime.strptime(trade_date,'%Y%m%d') - \
+        dt.datetime.strptime(last_rebalance_date,'%Y%m%d')
+        time_diff = int(time_diff.days)
+        
+        if time_diff >= rebalance_freq:
+            return True
+        else:
+            return False
+
+    if isinstance(last_rebalance_date,str) and isinstance(trade_date,pd.Timestamp):
+        if len(last_rebalance_date) == 0:
+            return True
+        time_diff = trade_date - dt.datetime.strptime(last_rebalance_date,'%Y%m%d')
+        time_diff = int(time_diff.days)
+        
+        if time_diff >= rebalance_freq:
+            return True
+        else:
+            return False
+        
+    if isinstance(last_rebalance_date,pd.Timestamp) and isinstance(trade_date,str):
+        if len(last_rebalance_date) == 0:
+            return True
+        time_diff = dt.datetime.strptime(trade_date,'%Y%m%d') - last_rebalance_date
+        time_diff = int(time_diff.days)
+        
+        if time_diff >= rebalance_freq:
+            return True
+        else:
+            return False
     
-    if time_diff >= rebalance_freq:
-        return True
-    else:
-        return False
-    
-def market_update(weight,last_net_value,trade_date,data_proxy,prepared_data):
+def market_update(weight,last_net_value,trade_date,data_proxy):
     '''
     市场更新
     
@@ -215,15 +218,13 @@ def market_update(weight,last_net_value,trade_date,data_proxy,prepared_data):
         交易日
     data_proxy
         数据代理
-    prepared_data
-        预加载数据
         
     Returns
     ------
     以收盘价计算的新净值与新权重
     '''
     universe = list(weight.keys())
-    universe_pct = data_proxy.get_daily_pct(universe,trade_date,prepared_data) # dict,获取交易日当天的涨跌幅
+    universe_pct = data_proxy.get_daily_pct(universe,trade_date) # dict,获取交易日当天的涨跌幅
     if universe_pct is None:
         print(trade_date)
         return None

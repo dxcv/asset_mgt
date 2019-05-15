@@ -17,7 +17,7 @@ Created on Fri Apr 12 17:02:46 2019
 import pandas as pd
 from strategy import MVStrategy,BLStrategy
 from data_proxy import DataProxy
-from data_objs import LocalMVDataSource1,LocalMVSaveSource1
+#from data_objs import LocalMVDataSource1,LocalMVSaveSource1
 from sim import run_sim
 
 #------------------ MV模型 ------------------
@@ -68,16 +68,16 @@ bl_industry_universe = \
  '801890.SI']
 
 
-from DataObjs import BLDataSource,LocalBLDataSource
+from data_objs import LocalBLDataSource,LocalMVSaveSource
 data_source = LocalBLDataSource()
-save_source = LocalMVSaveSource1('D:\\Temp')
+save_source = LocalMVSaveSource('D:\\Temp')
 data_proxy = DataProxy(data_source,save_source)
 
 bl_strategy = ['sample_customer']
 for strategy_id in bl_strategy:
     bl_strategy = BLStrategy(strategy_id,bl_industry_universe,data_proxy,'industry')
     rebalance_df,weight_df,net_value_df = \
-    run_sim(bl_strategy,'20150105',data_proxy,30)
+    run_sim(strategy_id,bl_strategy,'20150105',data_proxy,30)
     
 # 风格配置
 #bl_style_universe = ['399372.SZ', '399373.SZ', '399374.SZ', '399375.SZ', '399376.SZ', '399377.SZ']

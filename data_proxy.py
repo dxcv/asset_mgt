@@ -39,27 +39,8 @@ class DataProxy():
             Status对象
         '''
         return self.data_source.load_status(customer_id,strategy_id)
-        
-    def prepare_data(self,universe,start_date,end_date):
-        '''
-        预加载股票收盘价数据。
-        
-        Parameters
-        ----------
-        universe
-            list,标的池
-        start_date
-            开始日期
-        end_date
-            结束日期
-            
-        Returns
-        -------
-        DataFrame
-        '''
-        return self.data_source.prepare_data(universe,start_date,end_date)
     
-    def get_daily_pct(self,universe,trade_date,prepared_data = None):
+    def get_daily_pct(self,universe,trade_date):
         '''
         获取universe中在交易日当天的收益率.
         
@@ -69,14 +50,12 @@ class DataProxy():
             list
         trade_date
             str,YYYYMMDD
-        prepared_data
-            DataFrame,预加载数据
             
         Returns
         --------
         dict,key为标的代码,value为涨跌幅
         '''
-        return self.data_source.get_daily_pct(universe,trade_date,prepared_data)
+        return self.data_source.get_daily_pct(universe,trade_date)
     
     def create_trade_calendar(self,last_trade_date):
         '''
@@ -175,12 +154,13 @@ class DataProxy():
         return self.data_source.load_Q(customer_id,strategy_id)
     
     # 数据输出
-    def write_into_db(self,customer_id,strategy_id,weight_record,rebalance_record,net_value_record):
+    def write_into_db(self,customer_id,strategy_id,weight_hist,weight_dates,
+                      rebalance_hist,rebalance_dates,net_value_record):
         '''
         写入数据库.
         '''
-        self.save_source.write_into_db(customer_id,strategy_id,weight_record,
-                                       rebalance_record,net_value_record)
+        self.save_source.write_into_db(customer_id,strategy_id,weight_hist,weight_dates,
+                                       rebalance_hist,rebalance_dates,net_value_record)
     
     def strategy_status_first_into_DB(self,customer_id,strategy_id,start_date,rebalance_freq):    
         '''
@@ -205,4 +185,4 @@ class DataProxy():
         return self.data_source.get_cov_mat()
     
     def get_market_cap_ashare(self,universe,start_date,end_date):
-        return self.data_source.get_market_cap_ashare()
+        return self.data_source.get_market_cap_ashare(universe,start_date,end_date)

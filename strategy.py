@@ -7,14 +7,9 @@ Created on Mon Apr 15 13:15:07 2019
 
 # strategy.py
 
-import datetime as dt
 import dateutils
 import numpy as np
-import pandas as pd
 from core import Strategy
-#from dataflow.wind.wind_api import get_wsd,get_tdaysoffset # 模拟用
-from dataflow.wind.calendar import Calendar
-
 from utils import optimized_weight,BLModel
 
 class MVStrategy(Strategy):
@@ -67,9 +62,7 @@ class MVStrategy(Strategy):
         weight = optimized_weight(expected_ret,covariance_matrix,
                                   max_sigma = self.risk_level * volatility)
         return weight
-    
-    
-
+        
 class BLStrategy(Strategy):
     def __init__(self,customer_id,strategy_id,universe,data_proxy):
         self.customer_id = customer_id
@@ -98,7 +91,7 @@ class BLStrategy(Strategy):
 #        market_weight = np.mat(np.ones((len(self.universe),1)))
         
         # 市值加权
-        cap_a_shares = self.data_proxy.get_market_cap_ashare(self.universe,'mkt_cap_ashare',pre_date_str,pre_date_str)
+        cap_a_shares = self.data_proxy.get_market_cap_ashare(self.universe,pre_date_str,pre_date_str)
         cap_weight = cap_a_shares / cap_a_shares.sum(axis = 1).iloc[0]
         
         market_weight = np.mat(cap_weight.values[0].flatten()).T

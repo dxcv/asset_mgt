@@ -60,18 +60,19 @@ universe = ['801010.SI',
  '801880.SI',
  '801890.SI']
 
-cust_ids = [888800000053]
+cust_ids = [1,2,3]
 
-data_source = CommonDataSource(universe = universe,data_type = 'bl_industry',custs_list = cust_ids)
+data_source = CommonDataSource(universe = universe,data_type = 'bl_industry',
+                               custs_list = cust_ids)
 save_source = CommonSaveSource()
 data_proxy = DataProxy(data_source,save_source)  
-data_proxy.pre_load()
+data_proxy.pre_load(5)
 
 #mv_strategy_ids = [('medium',0.4),('medium_high',0.7),('high',1),('medium_low',0.2),('low',0.1)]
 
 
 for cust_id in cust_ids:
     strategy = BLStrategy(cust_id,'bl_industry',universe,data_proxy)
-    run_sim(cust_id,strategy,'20180101',data_proxy,rebalance_freq = 30)    
+    run_sim(cust_id,strategy,'20140601',data_proxy,rebalance_freq = 30)    
     
 # ----------------------------------------- BL行业模型 -----------------------------------------

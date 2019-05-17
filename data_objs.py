@@ -157,14 +157,14 @@ class CommonDataSource(DataSource):
         self.data_type = data_type
         self.custs_list = custs_list
         
-    def pre_load(self):
+    def pre_load(self,n_years):
         '''
         预加载最近两年的数据.
         '''
         
         engine = create_engine('mssql+pymssql://DBadmin:fs95536!@172.24.153.43/GeniusBar')
         today = dt.datetime.today()
-        years_ago = today - relativedelta(years = 2)
+        years_ago = today - relativedelta(years = n_years)
         
         data = pd.read_sql('''
                              SELECT * FROM asset_data
@@ -183,8 +183,8 @@ class CommonDataSource(DataSource):
         data_adj = pd.pivot_table(data_adj,columns = 'asset_code',values = 'close_price',index = 'trade_date')
         pct = data_adj.pct_change().dropna()
         
-        calendar = Calendar(years_ago.strftime('%Y%m%d'),
-                                 today.strftime('%Y%m%d'))
+        calendar = Calendar('20000104',today.strftime('%Y%m%d'))
+        
         self.calendar = calendar
         self.pct = pct
         self.data = data_adj
@@ -334,15 +334,15 @@ class CommonDataSource(DataSource):
         
     def load_P(self,customer_id,strategy_id):
         PQ = self.PQ.loc[self.PQ['fundid'] == customer_id]
-        P = PQ['p1'][0]
+        P = PQ['p1'].iloc[0]
         P = np.array(json.loads(P))
         P = np.eye(28)[P == 1]
-        P = pd.DataFrame(P,columns = self.P_columns['IndCode'].tolist())
+        P = pd.DataFrame(P,columns = self.P_column['IndCode'].tolist())
         return P
     
     def load_Q(self,customer_id,strategy_id):
         PQ = self.PQ.loc[self.PQ['fundid'] == customer_id]
-        Q = PQ['q1'][0]
+        Q = PQ['q1'].iloc[0]
         Q = np.array(json.loads(Q))
         Q = Q.reshape((len(Q),1))
         Q = pd.DataFrame(Q)

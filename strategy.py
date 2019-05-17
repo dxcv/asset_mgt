@@ -10,7 +10,7 @@ Created on Mon Apr 15 13:15:07 2019
 import dateutils
 import numpy as np
 from core import Strategy
-from utils import optimized_weight,BLModel
+from utils import optimized_weight,BlackLitterman
 
 class MVStrategy(Strategy):
     
@@ -93,7 +93,7 @@ class BLStrategy(Strategy):
         # 市值加权
         cap_a_shares = self.data_proxy.get_market_cap_ashare(self.universe,pre_date_str,pre_date_str)
         cap_weight = cap_a_shares / cap_a_shares.sum(axis = 1).iloc[0]
-        
+        market_weight_ser = cap_weight.iloc[0]
         market_weight = np.mat(cap_weight.values[0].flatten()).T
         market_sigma = market_weight.T * np.mat(expected_cov.values) * market_weight
         
@@ -104,9 +104,9 @@ class BLStrategy(Strategy):
         Q = self.data_proxy.load_Q(self.customer_id,self.strategy_id)
         
         tau = 0.025        
-        omega = 0
+        omega = np.eye(len(P)) * 0.03
         
-        weight = BLModel(expected_ret,expected_cov,tau,P,Q,omega,risk_aversion)
+        weight = BlackLitterman(market_weight_ser,expected_cov,tau,P,Q,omega,risk_aversion)
         
         return weight
         

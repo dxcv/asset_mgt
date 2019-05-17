@@ -63,6 +63,8 @@ def run_sim(customer_id,strategy,start_date,data_proxy,rebalance_freq = 30,if_sa
     net_value_hist = []
         
     calendar_touse = pd.DataFrame(calendar,columns = ['trade_date'])
+    calendar_touse['trade_date_str'] = calendar_touse.trade_date.apply(lambda x:x.strftime('%Y%m%d'))
+    calendar_touse.drop_duplicates('trade_date_str',inplace = True)
     calendar_touse.set_index('trade_date',drop = False,inplace = True)
     calendar_touse = calendar_touse.loc[(last_trade_date + relativedelta(days = 1)):dt.datetime.today()]
     

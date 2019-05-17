@@ -15,11 +15,11 @@ class DataProxy():
         self.data_source = data_source
         self.save_source = save_source
         
-    def pre_load(self):
+    def pre_load(self,n_years = 2):
         '''
         预加载数据.
         '''
-        self.data_source.pre_load()
+        self.data_source.pre_load(n_years)
         
     # 数据输入
     def load_status(self,customer_id,strategy_id):
